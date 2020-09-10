@@ -19,6 +19,7 @@ using System.IO;
 using System.Management.Automation;
 using System.Security;
 using Microsoft.Azure.Commands.Aks.Properties;
+using Microsoft.Azure.Commands.Aks.Utils;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ResourceManager.Common.Tags;
 using Microsoft.Azure.Management.ContainerService.Models;
@@ -62,14 +63,22 @@ namespace Microsoft.Azure.Commands.Aks
         [PSArgumentCompleter("Delete", "Deallocate")]
         public string NodeScaleSetEvictionPolicy { get; set; }
 
-        [Parameter(Mandatory = false, HelpMessage = "")]
+        [Parameter(Mandatory = false, HelpMessage = "Addon names to be enabled when cluster is created.")]
         [ValidateNotNullOrEmpty()]
         [PSArgumentCompleter("HttpApplicationRouting", "Monitoring", "VirtualNode", "AzurePolicy", "KubeDashboard", "IngressAppgw")]
         public string[] EnableAddonName { get; set; }
 
-        [Parameter(Mandatory = false, HelpMessage = "")]
-        [ValidateNotNullOrEmpty()]
+        [Parameter(Mandatory = false,
+            ValueFromPipelineByPropertyName = true,
+            HelpMessage = "Resource Id of the workspace of Monitoring addon.")]
+        [ValidateNotNullOrEmpty]
         public string WorkspaceResourceId { get; set; }
+
+        [Parameter(Mandatory = false,
+            ValueFromPipelineByPropertyName = true,
+            HelpMessage = "Subnet name of VirtualNode addon.")]
+        [ValidateNotNullOrEmpty]
+        public string SubnetName { get; set; }
 
         ///// <summary>The client AAD application ID.</summary>
         //[Parameter(Mandatory = false, HelpMessage = "The client AAD application ID.")]
@@ -261,45 +270,7 @@ namespace Microsoft.Azure.Commands.Aks
         private IDictionary<string, ManagedClusterAddonProfile> CreateAddonsProfiles()
         {
             Dictionary<string, ManagedClusterAddonProfile> addonProfiles = new Dictionary<string, ManagedClusterAddonProfile>();
-            HashSet<string> addonNameToBeEnabled = new HashSet<string>(EnableAddonName);
-            if (addonNameToBeEnabled.Contains("HttpApplicationRouting"))
-            {
-                addonProfiles.Add("httpApplicationRouting", new ManagedClusterAddonProfile(true));
-            }
-            if (addonNameToBeEnabled.Contains("Monitoring"))
-            {
-                if (!this.IsParameterBound(c => c.WorkspaceResourceId))
-                {
-                    throw new ArgumentException(Resources.AddonMonitoringShouldWorkWithWorkspaceResourceId);
-                }
-                WorkspaceResourceId = string.Format("/{0}", WorkspaceResourceId.Trim().Trim('/'));
-                Dictionary<string, string> config = new Dictionary<string, string>
-                {
-                    { "logAnalyticsWorkspaceResourceID", WorkspaceResourceId }
-                };
-                addonProfiles.Add("omsagent", new ManagedClusterAddonProfile(true, config));
-            } else if (this.IsParameterBound(c => c.WorkspaceResourceId))
-            {
-                throw new ArgumentException(Resources.AddonMonitoringShouldWorkWithWorkspaceResourceId);
-            }
-            if (addonNameToBeEnabled.Contains("VirtualNode"))
-            {
-                addonProfiles.Add("VirtualNode", new ManagedClusterAddonProfile(true));
-            }
-            if (addonNameToBeEnabled.Contains("AzurePolicy"))
-            {
-                addonProfiles.Add("AzurePolicy", new ManagedClusterAddonProfile(true));
-            }
-            if (addonNameToBeEnabled.Contains("KubeDashboard"))
-            {
-                addonProfiles.Add("kubeDashboard", new ManagedClusterAddonProfile(true));
-            }
-            if (addonNameToBeEnabled.Contains("IngressAppgw"))
-            {
-                addonProfiles.Add("IngressAppgw", new ManagedClusterAddonProfile(true));
-            }
-
-            return addonProfiles;
+            return AddonUtils.EnableAddonsProfile(addonProfiles, EnableAddonName, WorkspaceResourceId, SubnetName);
         }
     }
 }

@@ -18,6 +18,8 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Added support for addons in `New-AzAksCluster`.
+* Added cmdlets `Enable-AzAksAddon` and `Disable-AzAksAddon` for addons.
 * Added parameter `GenerateSshKey` for `New-AzAksCluster`.
 * Updated api version to 2020-06-01.
 
