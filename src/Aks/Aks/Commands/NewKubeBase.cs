@@ -13,7 +13,9 @@
 // ----------------------------------------------------------------------------------
 
 
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Management.Automation;
 using System.Security;
 using Microsoft.Azure.Commands.Aks.Properties;
@@ -60,6 +62,15 @@ namespace Microsoft.Azure.Commands.Aks
         [PSArgumentCompleter("Delete", "Deallocate")]
         public string NodeScaleSetEvictionPolicy { get; set; }
 
+        [Parameter(Mandatory = false, HelpMessage = "")]
+        [ValidateNotNullOrEmpty()]
+        [PSArgumentCompleter("HttpApplicationRouting", "Monitoring", "VirtualNode", "AzurePolicy", "KubeDashboard", "IngressAppgw")]
+        public string[] EnableAddonName { get; set; }
+
+        [Parameter(Mandatory = false, HelpMessage = "")]
+        [ValidateNotNullOrEmpty()]
+        public string WorkspaceResourceId { get; set; }
+
         ///// <summary>The client AAD application ID.</summary>
         //[Parameter(Mandatory = false, HelpMessage = "The client AAD application ID.")]
         //public string AadProfileClientAppId { get; set; }
@@ -71,7 +82,7 @@ namespace Microsoft.Azure.Commands.Aks
         ///// <summary>The server AAD application secret.</summary>
         //[Parameter(Mandatory = false, HelpMessage = "The server AAD application secret.")]
         //public string AadProfileServerAppSecret { get; set; }
- 
+
         //// <summary> The AAD tenant ID to use for authentication. If not specified, will use the tenant of the deployment subscription. </summary>
         //[Parameter(Mandatory = false,
         //    HelpMessage =
@@ -133,6 +144,8 @@ namespace Microsoft.Azure.Commands.Aks
 
             var networkProfile = GetNetworkProfile();
 
+            var addonProfiles = CreateAddonsProfiles();
+
             WriteVerbose(string.Format(Resources.DeployingYourManagedKubeCluster, AcsSpFilePath));
 
             var managedCluster = new ManagedCluster(
@@ -146,6 +159,7 @@ namespace Microsoft.Azure.Commands.Aks
                 windowsProfile: windowsProfile,
                 servicePrincipalProfile: spProfile,
                 aadProfile: aadProfile,
+                addonProfiles: addonProfiles,
                 networkProfile: networkProfile);
 
             if(EnableRbac.IsPresent)
@@ -242,6 +256,50 @@ namespace Microsoft.Azure.Commands.Aks
             //        serverAppSecret: AadProfileServerAppSecret, tenantID: AadProfileTenantId); 
             //}
             return aadProfile;
+        }
+
+        private IDictionary<string, ManagedClusterAddonProfile> CreateAddonsProfiles()
+        {
+            Dictionary<string, ManagedClusterAddonProfile> addonProfiles = new Dictionary<string, ManagedClusterAddonProfile>();
+            HashSet<string> addonNameToBeEnabled = new HashSet<string>(EnableAddonName);
+            if (addonNameToBeEnabled.Contains("HttpApplicationRouting"))
+            {
+                addonProfiles.Add("httpApplicationRouting", new ManagedClusterAddonProfile(true));
+            }
+            if (addonNameToBeEnabled.Contains("Monitoring"))
+            {
+                if (!this.IsParameterBound(c => c.WorkspaceResourceId))
+                {
+                    throw new ArgumentException(Resources.AddonMonitoringShouldWorkWithWorkspaceResourceId);
+                }
+                WorkspaceResourceId = string.Format("/{0}", WorkspaceResourceId.Trim().Trim('/'));
+                Dictionary<string, string> config = new Dictionary<string, string>
+                {
+                    { "logAnalyticsWorkspaceResourceID", WorkspaceResourceId }
+                };
+                addonProfiles.Add("omsagent", new ManagedClusterAddonProfile(true, config));
+            } else if (this.IsParameterBound(c => c.WorkspaceResourceId))
+            {
+                throw new ArgumentException(Resources.AddonMonitoringShouldWorkWithWorkspaceResourceId);
+            }
+            if (addonNameToBeEnabled.Contains("VirtualNode"))
+            {
+                addonProfiles.Add("VirtualNode", new ManagedClusterAddonProfile(true));
+            }
+            if (addonNameToBeEnabled.Contains("AzurePolicy"))
+            {
+                addonProfiles.Add("AzurePolicy", new ManagedClusterAddonProfile(true));
+            }
+            if (addonNameToBeEnabled.Contains("KubeDashboard"))
+            {
+                addonProfiles.Add("kubeDashboard", new ManagedClusterAddonProfile(true));
+            }
+            if (addonNameToBeEnabled.Contains("IngressAppgw"))
+            {
+                addonProfiles.Add("IngressAppgw", new ManagedClusterAddonProfile(true));
+            }
+
+            return addonProfiles;
         }
     }
 }

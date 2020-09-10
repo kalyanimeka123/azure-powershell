@@ -70,6 +70,15 @@ namespace Microsoft.Azure.Commands.Aks.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        internal static string AddonMonitoringShouldWorkWithWorkspaceResourceId {
+            get {
+                return ResourceManager.GetString("AddonMonitoringShouldWorkWithWorkspaceResourceId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Add Role Assignment.
         /// </summary>
         internal static string AddRoleAssignment {
